@@ -1,0 +1,616 @@
+---
+title: "Dashboard de precios de viviendas"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    runtime: shiny
+---
+
+```{r}
+library(flexdashboard)
+library(shiny)
+library(dplyr)
+library(plotly)
+library(treemapify)
+library(AER)
+library(stats)
+library(tidyverse)
+library(flextable)
+library(kableExtra)
+library(DT)
+library(shinydashboard)
+library(knitr)
+library(skimr)
+library(ggplot2)
+
+
+data("HousePrices")
+```
+
+
+# INTRODUCCIÓN {data-icon=fa-home}
+
+## Column {data-width="650"}
+Proyecto final de la alumna Elena Blanco para el curso de Big Data.<br>
+
+El proyecto consistirá en el análisis de un dataset que muestra los precios de venta de inmuebles en la ciudad de Windsor, Canadá, durante los meses de Julio, Agosto y Septiembre del año 1987, con el objetivo de predecir precios de venta en función de otras características del inmueble.<br>
+
+<div style="display: flex; justify-content: center; align-items: center;">
+![Proyecto HousePrices](https://assets.xomio.com/listings/images/rl-133040634__0__1080.jpg)
+</div>!
+
+
+# BASE DE DATOS {data-icon=fa-database}
+
+## Column {data-width="400"}
+
+La base de datos usada para el presente proyecto es [HousePrices - House Prices in the City of Windsor, Canada](https://cran.r-project.org/web/packages/AER/AER.pdf) perteneciente al paquete AER de R que proporciona conjuntos de datos para análisis econométricos.<br> Fuente: Anglin, P., and Gencay, R. (1996) ; Verbeek, M. (2004).<br>
+
+El dataframe contiene 546 observaciones y 12 variables que vemos a continuación<br>
+
+
+```{r message=TRUE, warning=TRUE, paged.print=TRUE}
+data("HousePrices")
+
+```
+
+### Head
+
+<div style="font-size: 10px;">
+
+```{r}
+renderTable({
+  head(HousePrices[, c("price", "lotsize", "bedrooms", "bathrooms", "stories", "garage", "driveway")]) 
+})
+```
+
+</div>
+
+### Tail
+
+<div style="font-size: 10px;">
+```{r}
+renderTable({
+  tail(HousePrices[, c("price", "lotsize", "bedrooms", "bathrooms", "stories", "garage", "driveway")]) 
+})
+```
+
+</div>
+
+## Column {data-width="500"}
+
+### Variables Numéricas
+
+**- price:** Numérica. Precio de venta del inmueble en dólares canadienses (100 dólares de 1987 equivalen a 231.57 dólares hoy)
+
+**- lotsize:** Numérica. Tamaño de la propiedad en pies cuadrados ( 1 pie cuadrado = 0,092903 metros cuadrados).
+
+**- bedrooms:** Numérica. Número de habitaciones.
+
+**- bathrooms:** Numérica. Número de baños completos.
+
+**- stories:** Numérica. Número de pisos excluyendo el sotano.
+
+**- garage:** Numérica. Número de plazas de garage.
+
+### Variables Categóricas
+
+**- driveway:** Categórica. Presenta entrada de coches.
+
+**- recreation:** Categórica. Posee sala recreativa.
+
+**- fullbase:** Categórica. Posee sotano arreglado.
+
+**- gasheat:** Categórica. Dispone de gas para el agua caliente sanitaria.
+
+**- aircon:** Categórica. Dispone de aire acondicionado central.
+
+**- prefer:** Categórica. La vivienda está ubicada en el barrio "preferido" de la ciudad.
+
+# ESTADÍSTICAS {data-icon=fa-ruler}
+
+## Column {data-width="12"}
+
+<div style="font-size: 9px; display: flex; justify-content: center; align-items: center;">
+
+```{r message=FALSE, warning=FALSE}
+renderTable ({
+  skim(HousePrices)
+})
+```
+
+</div>
+# Gráficos variables categóricas {data-navmenu="GRÁFICOS" data-navmenu-icon="fa-chart-bar"} 
+
+## Column {.sidebar data-width="300"}
+
+```{r}
+# SliderInput para seleccionar el rango de precios
+sliderInput("price_cat", "Selecciona un rango de precios:",
+       min = min(HousePrices$price),
+      max = max(HousePrices$price),
+      value = c(min(HousePrices$price), max(HousePrices$price)))
+# SelectInput para seleccionar la variable a mostrar en el eje x
+selectInput("varcat", "Selecciona una variable:",
+                  choices = c("driveway", "prefer", "gasheat", "aircon", "fullbase", "recreation"))
+    
+    
+```
+
+## Column {data-width="350"}
+
+### Gráfico de dispersión
+
+```{r message=TRUE, warning=TRUE}
+# Gráfico de dispersión interactivo con filtro de rango de precios
+renderPlot({
+  filtered_data <- HousePrices %>%
+    filter(price >= input$price_cat[1] & price <= input$price_cat[2])
+  ggplot(filtered_data, aes_string(x = input$varcat, y = "price")) +
+    geom_point(size=0.5) +
+    labs(x = input$varcat, y = "Precio de venta", title = "Gráfico de Precio vs variable seleccionada")
+
+})
+```
+
+### Boxplot
+
+```{r message=TRUE, warning=TRUE}
+# Boxplot 
+
+renderPlot({
+  filtered_data <- HousePrices %>%
+    filter(price >= input$price_cat[1] & price <= input$price_cat[2])
+ 
+  ggplot(filtered_data, aes(x = eval(as.name(input$varcat)), y = price)) +
+    geom_boxplot() +
+    labs(x = input$varcat, y = "Precio de venta", title = "Boxplot de Precio vs variable seleccionada")
+})
+
+
+```
+# Gráficos variables numéricas {data-navmenu="GRÁFICOS" data-navmenu-icon="fa-chart-bar"}
+
+## Column {.sidebar data-width="300"}
+
+```{r}
+# SliderInput para seleccionar el rango de precios
+sliderInput("price_num", "Selecciona un rango de precios:",
+       min = min(HousePrices$price),
+      max = max(HousePrices$price),
+      value = c(min(HousePrices$price), max(HousePrices$price)))
+# SelectInput para seleccionar la variable a mostrar en el eje x
+selectInput("varnum", "Selecciona una variable:",
+                  choices = c("lotsize", "bedrooms", "bathrooms", "stories", "garage"))
+    
+    
+```
+
+## Column {data-width="350"}
+
+### Gráfico de dispersión
+
+```{r message=TRUE, warning=TRUE}
+renderPlot({
+  filtered_data <- HousePrices %>%
+    filter(price >= input$price_num[1] & price <= input$price_num[2])
+  ggplot(filtered_data, aes_string(x = input$varnum, y = "price")) +
+    geom_point(size=0.5) +
+    labs(x = input$varnum, y = "Precio de venta", title = "Gráfico de Precio vs variable seleccionada")
+
+})
+
+ 
+```
+
+### Histograma
+
+```{r message=TRUE, warning=TRUE}
+# Histograma 
+
+renderPlot({
+  filtered_data <- HousePrices %>%
+    filter(price >= input$price_num[1] & price <= input$price_num[2])
+  
+   if (input$varnum == "lotsize") {
+    ggplot(filtered_data, aes(x = lotsize, fill = factor(categoric_price))) +
+      geom_histogram(position = "stack") +
+      labs(x = "lotsize", y = "Frecuencia", title = "Histograma de lotsize")
+  } else {
+    ggplot(filtered_data, aes(x = eval(as.name(input$varnum)), fill = factor(HousePrices$categoric_price))) +
+      geom_bar(position = "dodge") +
+      labs(x = input$varnum, y = "Frecuencia", title = "Histograma de la variable seleccionada")
+  }
+  
+
+})
+
+  
+
+ 
+```
+
+
+#  Tabla cruzada Price vs Bedrooms {data-navmenu="TABLAS" data-navmenu-icon="fa-list"} 
+
+##  {data-width = 650}
+
+### Tabla: Precio categorizado versus Número de Habitaciones
+
+```{r message=TRUE, warning=TRUE, paged.print=TRUE}
+
+# Crear la tabla cruzada
+HousePrices$categoric_price <- cut(HousePrices$price, breaks = c(25000, 50000, 75000, 100000, 125000, 190000), labels = c("25000-49999", "50000-74999", "75000-99999", "100000-124999", "125000-190000"))
+cross_table <- table(HousePrices$categoric_price, HousePrices$bedrooms)
+cross_table_totals <- addmargins(cross_table, margin = 1:2)
+
+library(kableExtra)
+# Cambiar el color de la segunda fila y la cuarta columna
+kable(cross_table_totals, format = "html") %>%
+  kable_styling() %>%
+ row_spec(2, background = "lightblue") %>%
+  column_spec(4, background = "lightblue")
+
+
+# Formatear la tabla usando knitr::kable()
+library(knitr)
+
+# kable(cross_table_totals, format = "html", padding = 3)
+# kable(cross_table_totals, format = "html", align = "c", padding = 3)
+
+
+```
+
+### Treemap
+
+
+
+```{r message=TRUE, warning=TRUE}
+
+# Treemap de precio categorizado vs número de habitaciones
+renderPlot({
+  cross_table_df <- as.data.frame(cross_table)
+  ggplot(cross_table_df, aes(area = Freq, fill = Var1, label = Var2, group = Var1)) +
+    geom_treemap() +
+    geom_treemap_text() +
+    labs(title = "Treemap de precio categorizado vs número de habitaciones")
+}, height = 300, width = 1150)
+
+```
+
+
+# Tabla cruzada Garage vs Prefer{data-navmenu="TABLAS" data-navmenu-icon="fa-list"}
+
+##  {data-width = 650}
+
+### Tabla: Zona preferencial versus Plazas de Garage
+
+```{r message=TRUE, warning=TRUE, paged.print=TRUE}
+cross_table2<- table(HousePrices$prefer, HousePrices$garage)
+
+# Add row and column totals
+cross_table2_totals <- addmargins(cross_table2, margin = 1:2)
+
+# Format the table using knitr::kable()
+library(knitr)
+
+# Cambiar el color de la primera fila y la segunda columna
+kable(cross_table2_totals, format = "html") %>%
+  kable_styling() %>%
+  row_spec(1, background = "lightblue") %>%
+  column_spec(2, background = "lightblue")
+
+# kable(cross_table2_totals, format = "html", padding = 3)
+# kable(cross_table2_totals, format = "html", align = "c", padding = 3)
+library(kableExtra)
+```
+
+
+
+### Gráfico
+```{r}
+renderPlot({
+  ggplot(HousePrices, aes(x = prefer, fill = factor(garage))) +
+  geom_bar(position = "dodge")
+})
+```
+# Regresión lineal múltiple{data-navmenu="MODELOS" data-navmenu-icon="fa-cog"}
+## {.tabset}
+
+### Modelo 1 
+
+
+
+#### Modelo {data-width=500}
+
+<style>
+.dataTables_scrollBody {
+  height:400px !important;
+  max-height:400px !important;
+}
+.chart-stage-flex {
+  overflow:auto !important;
+}
+</style>
+
+```{r echo=TRUE, message=TRUE, warning=TRUE}
+
+model1 <- lm(log(price) ~ driveway + recreation + fullbase  +
+   garage + prefer + log(lotsize) + log(bathrooms) + log(stories), data = HousePrices)
+summary(model1)
+
+
+```
+
+
+
+#### Gráficos {data-width=400}
+```{r}
+# Crear los gráficos
+library(performance)
+renderPlot({
+
+check_model(model1)
+})
+
+
+```
+
+
+
+### Modelo 2
+
+#### Modelo {data-width=500}
+
+```{r echo=TRUE, message=TRUE, warning=TRUE}
+
+model2 <- lm(price ~ driveway + recreation + fullbase + gasheat + 
+  aircon + prefer +  stories, data = HousePrices)
+summary(model2)
+```
+
+#### Gráficos {data-width=400}
+```{r}
+# Crear los gráficos
+library(performance)
+renderPlot({
+
+check_model(model2)
+})
+
+
+```
+
+
+
+
+### Modelo 3
+
+#### Modelo {data-width=500}
+
+
+```{r message=TRUE, warning=TRUE}
+
+model3 <- lm(log(price) ~ driveway + recreation + fullbase +  
+   garage + prefer + log(lotsize) + bedrooms + 
+  bathrooms + stories, data = HousePrices)
+summary(model3)
+```
+
+
+#### Gráficos {data-width=400}
+```{r}
+# Crear los gráficos
+library(performance)
+renderPlot({
+
+check_model(model3)
+})
+
+
+```
+### Tabla comparativa 
+
+
+
+```{r echo=FALSE, results='asis'}
+library(modelsummary)
+library(dplyr)
+library(stargazer)
+modelos <- list("Modelo 1" = model1, "Modelo 2" = model2, "Modelo 3" = model3)
+modelsummary(modelos, output = "default", stars = TRUE)
+tabla <- modelsummary(modelos)
+
+
+
+
+
+```
+
+### Gráfico Modelo 1
+
+```{r}
+
+  ggplot(HousePrices, aes(x = c(as.numeric(driveway) + as.numeric(recreation) + as.numeric(fullbase) + garage + as.numeric(prefer) + log(lotsize) + log(bathrooms) + log(stories)), y = log(price))) +
+  geom_point() +
+  stat_smooth(method = "lm", color = "red")
+```
+
+### Gráfico Modelo 2
+```{r warning=TRUE}
+
+  ggplot(HousePrices, aes(x = c(as.numeric(driveway) + as.numeric(recreation) + as.numeric(fullbase)+ as.numeric(gasheat) + 
+  as.numeric(aircon) + as.numeric(prefer)+ as.numeric(stories)), y = price)) +
+  geom_point() +
+  stat_smooth(method = "lm", color = "red")
+
+```
+
+### Gráfico Modelo 3
+
+```{r}
+
+  ggplot(HousePrices, aes(x = c(as.numeric(driveway) + as.numeric(recreation) + as.numeric(fullbase)  + garage + as.numeric(prefer) + log(lotsize) + bedrooms + bathrooms + stories), y = log(price))) +
+  geom_point() +
+  stat_smooth(method = "lm", color = "red")
+```
+
+### Gráfico comparativo
+#### Gráfico de araña
+```{r}
+plot(compare_performance(model1, model2, model3, rank = TRUE))
+
+```
+
+#### Comparativa de test
+
+```{r}
+test_bf(model1, model2, model3)
+```
+
+# Validación de modelos {data-navmenu="MODELOS" data-navmenu-icon="fa-cog"}
+## {data-width = 650}{.tabset}
+ 
+Para validar los modelos usamos:<br> 
+**- Test de Breusch-Pagan:**  nuestra  Hipótesis Nula será la presencia de homocedasticidad y la Hipótesis Alternativa la presencia de heterocedasticidad<br>
+
+**- Test de Jarque Bera o Test de Normalidad:** nuestra Hipótesis Nula (H0) será que los residuos se distribuyen como una normal y la Hipótesis Alternativa (HA) que los errores no se distribuyen según una normal.<br>
+
+**- El criterio de información de Akaike:** es una medida que se usa para comparar el ajuste de varios modelos estadísticos, teniendo en cuenta el número de parámetros que usan. El modelo con el menor valor de AIC se considera el mejor entre los candidatos. 
+
+### Validación Modelo 1
+#### bptest
+```{r}
+library (lmtest)
+bptest(model1)
+gauge(0.01952, min = 0.0, max = 0.01, abbreviateDecimals = 5, symbol ="p-value" )
+
+``` 
+
+#### normtest
+```{r}
+library (lmtest)
+normtest::jb.norm.test(model1$residuals, nrepl=2000)
+gauge(0.0055, min = 0.0, max = 0.01, abbreviateDecimals = 5, symbol = "p-value")
+```
+
+En el Test de Breusch-Pagan Utilizando un nivel de significación del 1%, nuestra H0 se acepta al ser mayor su p-valor que el nivel de significación aceptado.
+En cuanto al test de normalidad, usando el mismo nivel de significación anterior, nuestra H0 se rechazaría al ser el p-valor más pequeño que el nivel de significación aceptado.
+
+Este modelo no cumpliría con las condiciones propuestas en cuanto a normalidad se refiere.
+
+
+
+### Validación Modelo 2
+#### bptest
+```{r}
+library (lmtest)
+bptest(model2)
+gauge(0.0001503, min = 0.0, max = 0.01, abbreviateDecimals = 7,  symbol ="p-value" )
+```
+
+#### normtest
+```{r}
+library (lmtest)
+normtest::jb.norm.test(model2$residuals, nrepl=2000)
+gauge(2.2e-16, min = 0.0, max = 0.01, abbreviateDecimals = 5,  symbol ="p-value" )
+```
+
+
+En el Test de Breusch-Pagan Utilizando un nivel de significación del 1%, nuestra H0 se rechazaría al ser menor su p-valor que el nivel de significación aceptado.
+En cuanto al test de normalidad, usando el mismo nivel de significación anterior, nuestra H0 se rechaza.
+
+Este modelo no cumpliría con las condiciones propuestas.
+
+### Validación Modelo 3
+#### bptest
+```{r}
+library (lmtest)
+bptest(model3)
+gauge(0.01177, min = 0.0, max = 0.01, abbreviateDecimals = 5,  symbol ="p-value")
+```
+
+#### normtest
+```{r}
+library (lmtest)
+normtest::jb.norm.test(model3$residuals, nrepl=2000)
+gauge(0.009, min = 0.0, max = 0.01, abbreviateDecimals = 4,  symbol ="p-value" )
+```
+
+
+
+En el Test de Breusch-Pagan Utilizando un nivel de significación del 1%, nuestra H0 se acepta al ser mayor su p-valor que el nivel de significación aceptado.
+En cuanto al test de normalidad, usando el mismo nivel de significación anterior, nuestra H0 se acepta.
+
+Este modelo cumpliría con las condiciones propuestas de homocedasticidad pero no de normalidad para el nivel de significación escogido
+
+### Comparativa de validación
+
+```{r}
+library(broom)
+library(dplyr)
+library(stats)
+# Crear una lista con los nombres de los modelos
+model_names <- c("model1", "model2", "model3")
+
+# Crear una función para aplicar bptest y normtest a cada modelo y extraer los resultados
+validate_model <- function(model_name) {
+  # Obtener el modelo de la lista
+  model <- get(model_name)
+  
+  # Aplicar bptest y normtest al modelo
+  bp <- bptest(model)
+  norm <- normtest::jb.norm.test(model$residuals, nrepl = 2000)
+  AIC <- AIC(model)
+  # Extraer los resultados en formato de data frame
+  bp_res <- tidy(bp)
+  norm_res <- tidy(norm)
+  AIC_res <- tidy(AIC)
+  
+  # Agregar el nombre del modelo como una columna
+  bp_res$model <- model_name
+  norm_res$model <- model_name
+  AIC_res$model <- model_name
+  # Devolver los resultados combinados
+  
+  bind_rows(bp_res, norm_res, AIC_res)
+}
+
+# Aplicar la función a cada modelo y combinar los resultados en una tabla
+tab <- map_df(model_names, validate_model)
+
+# Mostrar la tabla
+library(DT)
+renderDataTable(tab, options = list(dom = 't'))
+
+```
+
+
+```{r}
+library(stats)
+AIC(model1, model2, model3)
+```
+
+# CONCLUSIONES {data-icon=fa-info-circle}
+## Column {data-width="650"}
+
+Para el estudio realicé múltiples modelos que no presentaban resultados idóneos. Al final seleccioné tres modelos que son los que se han evaluado. El estudio realizado implica el tener en cuenta muchos factores:
+
+Por un lado tenemos los coeficientes estimados que indican la relación entre las variables independientes y la variable objetivo (dependiente), es decir, indican como cambia la variable dependiente en respuesta a un cambio, bien unitario, bien porcentual, de las variables dependientes. Debemos evaluar también si los coeficientes son estadísticamente significativos.
+
+Los valores entre paréntesis, por debajo de los coeficientes, son el error estándar de los coeficientes estimados e indican la precisión de los mismos.
+
+En cuanto a las métricas de ajuste del modelo, el R-cuadrado indica la proporción de la variabilidad de la variable dependiente que es explicada por el modelo, por eso un R-cuadrado más alto indica un mejor ajuste del modelo. El R2 Adj. tiene en cuenta el número de variables independientes y un valor más alto indica un mejor ajuste del modelo.
+
+
+El error cuadrático medio (RMSE) es una medida de cuánto varían los valores ajustados del modelo con respecto a los valores observados. Un valor más bajo de RMSE indica un mejor ajuste del modelo a los datos
+
+
+El estimador Akaike (AIC) es una medida de la calidad del ajuste del modelo que tiene en cuenta la cantidad de información que se pierde al ajustar el modelo. Un valor más bajo de AIC indica un mejor ajuste del modelo, en este caso el valor más bajo corresponde al Modelo 1.
+
+En función de todos estos parámetros y tras la validación de los modelos realizado en el apartado anterior, y explicado en el mismo, podemos concluir que los Modelos 1 y 3 se comportan de forma muy similar. Dado el valor de R2 ligeramente superior del Modelo 3, aunque no es un valor óptimo, podríamos concluir que el Modelo 3 sería el seleccionado para nuestra predicción. 
+
+
+
+
