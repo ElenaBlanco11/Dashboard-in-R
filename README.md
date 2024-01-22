@@ -1,0 +1,1 @@
+Proyecto de fin de un curso de Big Data utilizando R. Análisis sobre la venta de inmuebles en una población de Canadá con predicción de precios de venta en función de las características de los mismos
